@@ -22,6 +22,8 @@ import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity implements BluetoothAdapter.LeScanCallback {
 
+    // ble service
+    private boolean isBindRFduinoService = false;
     // view setting -related
     public  final  static  String EXTRA_RECEIVER_EMAIL = "com.appzhen.sntester.RE_EMAIL";
     public  final  static  String EXTRA_MAX_SENSED_VALUE = "com.appzhen.sntester.MAX_VALUE";
@@ -70,6 +72,9 @@ public class MainActivity extends AppCompatActivity implements BluetoothAdapter.
                 upgradeState(STATE_DISCONNECTED);
             } else if (state == BluetoothAdapter.STATE_OFF) {
                 downgradeState(STATE_BLUETOOTH_OFF);
+                scanning = false;
+                scanStarted = false;
+                deviceInfoText.setText("");
             }
         }
     }; // bleStateReceiver
@@ -77,7 +82,12 @@ public class MainActivity extends AppCompatActivity implements BluetoothAdapter.
         @Override
         public void onReceive(Context context, Intent intent) {
             scanning = (bluetoothAdapter.getScanMode() != BluetoothAdapter.SCAN_MODE_NONE);
+//            Log.i("3.scanning state:",Boolean.toString(scanning));
+//            Log.i("1.scanStarted state:", Boolean.toString(scanStarted));
 //            scanStarted &= scanning;
+            if (scanStarted == false){
+                scanning = false;
+            }
             updateUi();
         }
     }; //scan mode receiver
@@ -267,8 +277,8 @@ public class MainActivity extends AppCompatActivity implements BluetoothAdapter.
         scanBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-//                Log.i("scanning state:",Boolean.toString(scanning));
-//                Log.i("scanStarted state:", Boolean.toString(scanStarted));
+                Log.i("2.scanning state:",Boolean.toString(scanning));
+                Log.i("2.scanStarted state:", Boolean.toString(scanStarted));
                 if (scanning){
                     if (scanStarted){
                         bluetoothAdapter.stopLeScan(MainActivity.this);
@@ -332,8 +342,12 @@ public class MainActivity extends AppCompatActivity implements BluetoothAdapter.
 
                 }else {
                     connectBluetoothState.setText("Connecting...");
+                    if (isBindRFduinoService || isLoseBLeFromOtherActivity){
+                        unbindService(rfduinoServiceConnection);
+                    }
                     Intent rfduinoIntent = new Intent(MainActivity.this, RFduinoService.class);
                     bindService(rfduinoIntent, rfduinoServiceConnection, BIND_AUTO_CREATE);
+                    isBindRFduinoService = true;
                 }
 
             }
@@ -351,7 +365,8 @@ public class MainActivity extends AppCompatActivity implements BluetoothAdapter.
 //                startActivity(intent);
 //            }
 //        });
-
+        Log.i("1.scanning state:",Boolean.toString(scanning));
+        Log.i("1.scanStarted state:", Boolean.toString(scanStarted));
 
     }
 

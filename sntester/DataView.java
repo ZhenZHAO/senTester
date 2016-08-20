@@ -15,7 +15,10 @@ import android.util.Log;
 import android.view.View;
 import android.widget.AbsListView;
 import android.widget.Button;
+import android.widget.CompoundButton;
+import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -50,6 +53,8 @@ import java.util.Date;
 
 public class DataView extends AppCompatActivity {
 
+    // sampling rate
+    private final static int SAMPLYING_DURATION = 100;
     // returning flag
     public final static String EXTRA_RETRURN_TO_MAIN_STATE = "com.appzhen.sntester.RETURN_STATE";
     // Ble state
@@ -62,10 +67,11 @@ public class DataView extends AppCompatActivity {
 
     // graph
     private float maximumSensedValue;
+    private float defaultMaxValue;
     private String receiverEmail;
     private LineChart mChart;
     // show visible count on graph
-    private  static  final float visibleCount = 6f;
+    private  static  final float visibleCount = 10f;
     private Thread threadDraw;
     private boolean isThreadInterrupt = false;
 
@@ -82,7 +88,16 @@ public class DataView extends AppCompatActivity {
     private int recordingStopIndex;
     private boolean isRecordFromExport = false;
 
+    // max value setting
+    private boolean isNewMaxSetting = false;
+    private Button maxValueClrBtn;
+    private Button maxValueSetBtn;
+    private EditText maxValueInput;
+    private static int reNum = 0;
 
+    //time axis switch
+    private boolean isTimeAxisOn = false;
+    private Switch timeAxisSwt;
 
     //Ui elements
     TextView resistorReader;
@@ -164,6 +179,7 @@ public class DataView extends AppCompatActivity {
         setContentView(R.layout.activity_data_view);
         // get passed view setting
         this.maximumSensedValue = getIntent().getFloatExtra(MainActivity.EXTRA_MAX_SENSED_VALUE,24f);
+        defaultMaxValue = maximumSensedValue;
         this.receiverEmail = getIntent().getStringExtra(MainActivity.EXTRA_RECEIVER_EMAIL);
         // state value
         isBleCorrectConnect = true;
@@ -216,6 +232,69 @@ public class DataView extends AppCompatActivity {
             }
         });
 
+        // max value setting
+        maxValueInput = (EditText)findViewById(R.id.sensorMax);
+        maxValueInput.setHint(Float.toString(defaultMaxValue));
+        maxValueClrBtn = (Button)findViewById(R.id.BtnUsrClr);
+        maxValueSetBtn = (Button)findViewById(R.id.BtnUsrSet);
+
+        maxValueClrBtn.setOnClickListener(new View.OnClickListener(){
+            @Override
+            public void onClick(View view) {
+                String inputMaxValue = maxValueInput.getText().toString();
+                if (!inputMaxValue.isEmpty() && !inputMaxValue.equals("")){
+                        maximumSensedValue = defaultMaxValue;
+                        maxValueInput.setText("");
+                        customizeLineChart();
+                        previousValue = getNewDetectedValue() - 0.1f;
+
+                    isNewMaxSetting = true;
+                    maxValueClrBtn.setEnabled(false);
+                }
+            }
+        });
+
+        maxValueSetBtn.setOnClickListener(new View.OnClickListener(){
+            @Override
+            public void onClick(View view) {
+                String inputMaxValue = maxValueInput.getText().toString();
+                //Log.i("zzzzz=",inputMaxValue);
+                if (!inputMaxValue.isEmpty() && !inputMaxValue.equals("")){
+                    float newValue = Float.parseFloat(inputMaxValue);
+                    if (newValue != maximumSensedValue){
+                        maximumSensedValue = newValue;
+                        customizeLineChart();
+                        isNewMaxSetting = true;
+                        maxValueClrBtn.setEnabled(true);
+                        reNum++;
+                        maxValueSetBtn.setText("RESET "+reNum);
+                        previousValue = getNewDetectedValue()- 0.1f;
+                    }
+                }else
+                {
+                    isNewMaxSetting = false;
+                    maxValueClrBtn.setEnabled(false);
+                }
+            }
+        });
+
+        //time axis switch
+        timeAxisSwt = (Switch)findViewById(R.id.showModeSwt);
+        timeAxisSwt.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            String tmpStr;
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean b) {
+                if (b){
+                    isTimeAxisOn = true;
+                    tmpStr = "Time Axis ON: 10Hz";
+                    Toast.makeText(getApplication().getBaseContext(),tmpStr,Toast.LENGTH_SHORT).show();
+                }else{
+                    isTimeAxisOn = false;
+                    tmpStr = "Time Axis OFF";
+                    Toast.makeText(getApplication().getBaseContext(),tmpStr,Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
 
         // set new detected value
         setNewDetectedValue(0f);
@@ -255,7 +334,7 @@ public class DataView extends AppCompatActivity {
                     });
                     // pause between adds
                     try {
-                        Thread.sleep(200);
+                        Thread.sleep(SAMPLYING_DURATION);
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     }
@@ -335,7 +414,7 @@ public class DataView extends AppCompatActivity {
 //            updateReaderValue();
 
             //notify chart whether data have changed
-            if (getCurrentNewDataState()){
+            if (getCurrentNewDataState() || isTimeAxisOn){
                 // update reader buffer
                 updateReaderBuffer(getNewDetectedValue());
                 // update line chart
